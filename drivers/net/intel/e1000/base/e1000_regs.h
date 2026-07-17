@@ -732,7 +732,16 @@
 #define E1000_TRGTTIMH1	0x0B650 /* Target Time Register 1 High - RW */
 #define E1000_FREQOUT0	0x0B654 /* Frequency Out 0 Control Register - RW */
 #define E1000_FREQOUT1	0x0B658 /* Frequency Out 1 Control Register - RW */
+#define E1000_AUXSTMPL0	0x0B65C /* Auxiliary Timestamp Register 0 Low  - RO */
+#define E1000_AUXSTMPH0	0x0B660 /* Auxiliary Timestamp Register 0 High - RO */
+#define E1000_AUXSTMPL1	0x0B664 /* Auxiliary Timestamp Register 1 Low  - RO */
+#define E1000_AUXSTMPH1	0x0B668 /* Auxiliary Timestamp Register 1 High - RO */
 #define E1000_TSSDP	0x0003C  /* Time Sync SDP Configuration Register - RW */
+
+#define E1000_TRGTTIML(n) (0x0B644 + ((n) * 8))
+#define E1000_TRGTTIMH(n) (0x0B648 + ((n) * 8))
+#define E1000_AUXSTMPL(n) (0x0B65C + ((n) * 8))
+#define E1000_AUXSTMPH(n) (0x0B660 + ((n) * 8))
 
 #define E1000_MRQC_ENABLE_MASK		0x00000007
 #define E1000_MRQC_RSS_FIELD_IPV6_EX	0x00080000

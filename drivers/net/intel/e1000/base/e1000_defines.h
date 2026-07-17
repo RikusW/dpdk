@@ -38,10 +38,12 @@
 #define E1000_CTRL_EXT_LPCD		0x00000004 /* LCD Power Cycle Done */
 #define E1000_CTRL_EXT_SDP4_DATA	0x00000010 /* SW Definable Pin 4 data */
 #define E1000_CTRL_EXT_SDP6_DATA	0x00000040 /* SW Definable Pin 6 data */
+#define E1000_CTRL_EXT_SDP2_DATA	0x00000040 /* SW Definable Pin 2 data */
 #define E1000_CTRL_EXT_SDP3_DATA	0x00000080 /* SW Definable Pin 3 data */
 /* SDP 4/5 (bits 8,9) are reserved in >= 82575 */
 #define E1000_CTRL_EXT_SDP4_DIR	0x00000100 /* Direction of SDP4 0=in 1=out */
 #define E1000_CTRL_EXT_SDP6_DIR	0x00000400 /* Direction of SDP6 0=in 1=out */
+#define E1000_CTRL_EXT_SDP2_DIR	0x00000400 /* Direction of SDP2 0=in 1=out */
 #define E1000_CTRL_EXT_SDP3_DIR	0x00000800 /* Direction of SDP3 0=in 1=out */
 #define E1000_CTRL_EXT_FORCE_SMBUS	0x00000800 /* Force SMBus mode */
 #define E1000_CTRL_EXT_EE_RST	0x00002000 /* Reinitialize from EEPROM */
@@ -820,7 +822,8 @@
 /* Sample TX tstamp in PHY sop */
 #define E1000_TSYNCTXCTL_TXSYNSIG	0x00000020
 
-/* TSAUXC Configuration Bits */
+/* TSAUXC Configuration Bits 8.15.13 */
+#define TSAUXC_EN_TT(n)	(1 << (n & 1))
 #define TSAUXC_EN_TT0	(1 << 0)  /* Enable target time 0. */
 #define TSAUXC_EN_TT1	(1 << 1)  /* Enable target time 1. */
 #define TSAUXC_EN_CLK0	(1 << 2)  /* Enable Configurable Frequency Clock 0. */
@@ -828,9 +831,17 @@
 #define TSAUXC_EN_CLK1	(1 << 5)  /* Enable Configurable Frequency Clock 1. */
 #define TSAUXC_ST1	(1 << 7)  /* Start Clock 1 Toggle on Target Time 1. */
 #define TSAUXC_EN_TS0	(1 << 8)  /* Enable hardware timestamp 0. */
-#define TSAUXC_EN_TS1	(1 << 10) /* Enable hardware timestamp 0. */
+#define TSAUXC_AUTT0	(1 << 9)  /* Auxiliary timestamp taken */
+#define TSAUXC_EN_TS1	(1 << 10) /* Enable hardware timestamp 1. */
+#define TSAUXC_AUTT1	(1 << 11) /* Auxiliary timestamp taken */
+#define TSAUXC_PLSG	(1 << 17) /* Target Time 0 generate level/pulse */
 
-/* SDP Configuration Bits */
+/* TSSDP Configuration Bits 8.15.25 */
+#define AUXx_TS_SDP_EN(x) (1 << (2 + (((x) & 1) * 3)))       /* Enable auxiliary time stamp trigger x. */
+#define AUXx_SEL_SDPn(x, n) (((n) & 3u) << (3 * ((x) & 1))) /* Assign SDPn to auxiliary time stamp x. */
+#define AUXx_SEL_SDP_CLR(x) (~(AUXx_SEL_SDPn(x, 3)))
+#define AUXx_SEL_SDPnr(x, n, r) r = ((r & AUXx_SEL_SDP_CLR(x)) | AUXx_SEL_SDPn(x, n))
+
 #define AUX0_SEL_SDP0	(0u << 0)  /* Assign SDP0 to auxiliary time stamp 0. */
 #define AUX0_SEL_SDP1	(1u << 0)  /* Assign SDP1 to auxiliary time stamp 0. */
 #define AUX0_SEL_SDP2	(2u << 0)  /* Assign SDP2 to auxiliary time stamp 0. */
@@ -841,32 +852,43 @@
 #define AUX1_SEL_SDP2	(2u << 3)  /* Assign SDP2 to auxiliary time stamp 1. */
 #define AUX1_SEL_SDP3	(3u << 3)  /* Assign SDP3 to auxiliary time stamp 1. */
 #define AUX1_TS_SDP_EN	(1u << 5)  /* Enable auxiliary time stamp trigger 1. */
-#define TS_SDP0_EN	(1u << 8)  /* SDP0 is assigned to Tsync. */
-#define TS_SDP1_EN	(1u << 11) /* SDP1 is assigned to Tsync. */
-#define TS_SDP2_EN	(1u << 14) /* SDP2 is assigned to Tsync. */
-#define TS_SDP3_EN	(1u << 17) /* SDP3 is assigned to Tsync. */
+
+#define TS_SDPn_EN(n) (1u << (8u + (((n) & 3u) * 3u)))  /* SDPn is assigned to Tsync. */
+#define TS_SDPn_SEL_pos(n) (6u + (((n) & 3u) * 3u))
+#define TS_SDPn_SEL_TTx(n, x) ( ((x) & 1u)       << TS_SDPn_SEL_pos(n))  /* Target time x = (0/1) is output on SDPn. */
+#define TS_SDPn_SEL_FCx(n, x) ((((x) & 1u) | 2u) << TS_SDPn_SEL_pos(n))  /* Freq clock  x = (0/1) is output on SDPn. */
+#define TS_SDPn_SEL_CLR(n) (~(3u << TS_SDPn_SEL_pos(n)))  /* Clear register bits */
+#define TS_SDPn_SEL_TTxr(n, x, r) r = ((r & TS_SDPn_SEL_CLR(n)) | TS_SDPn_SEL_TTx(n, x))
+#define TS_SDPn_SEL_FCxr(n, x, r) r = ((r & TS_SDPn_SEL_CLR(n)) | TS_SDPn_SEL_TTx(n, x))
+
 #define TS_SDP0_SEL_TT0	(0u << 6)  /* Target time 0 is output on SDP0. */
 #define TS_SDP0_SEL_TT1	(1u << 6)  /* Target time 1 is output on SDP0. */
-#define TS_SDP1_SEL_TT0	(0u << 9)  /* Target time 0 is output on SDP1. */
-#define TS_SDP1_SEL_TT1	(1u << 9)  /* Target time 1 is output on SDP1. */
 #define TS_SDP0_SEL_FC0	(2u << 6)  /* Freq clock  0 is output on SDP0. */
 #define TS_SDP0_SEL_FC1	(3u << 6)  /* Freq clock  1 is output on SDP0. */
+#define TS_SDP0_EN	(1u << 8)  /* SDP0 is assigned to Tsync. */
+
+#define TS_SDP1_SEL_TT0	(0u << 9)  /* Target time 0 is output on SDP1. */
+#define TS_SDP1_SEL_TT1	(1u << 9)  /* Target time 1 is output on SDP1. */
 #define TS_SDP1_SEL_FC0	(2u << 9)  /* Freq clock  0 is output on SDP1. */
 #define TS_SDP1_SEL_FC1	(3u << 9)  /* Freq clock  1 is output on SDP1. */
+#define TS_SDP1_EN	(1u << 11) /* SDP1 is assigned to Tsync. */
+
 #define TS_SDP2_SEL_TT0	(0u << 12) /* Target time 0 is output on SDP2. */
 #define TS_SDP2_SEL_TT1	(1u << 12) /* Target time 1 is output on SDP2. */
 #define TS_SDP2_SEL_FC0	(2u << 12) /* Freq clock  0 is output on SDP2. */
 #define TS_SDP2_SEL_FC1	(3u << 12) /* Freq clock  1 is output on SDP2. */
+#define TS_SDP2_EN	(1u << 14) /* SDP2 is assigned to Tsync. */
+
 #define TS_SDP3_SEL_TT0	(0u << 15) /* Target time 0 is output on SDP3. */
 #define TS_SDP3_SEL_TT1	(1u << 15) /* Target time 1 is output on SDP3. */
 #define TS_SDP3_SEL_FC0	(2u << 15) /* Freq clock  0 is output on SDP3. */
 #define TS_SDP3_SEL_FC1	(3u << 15) /* Freq clock  1 is output on SDP3. */
+#define TS_SDP3_EN	(1u << 17) /* SDP3 is assigned to Tsync. */
 
-#define E1000_CTRL_SDP0_DIR	0x00400000  /* SDP0 Data direction */
-#define E1000_CTRL_SDP1_DIR	0x00800000  /* SDP1 Data direction */
-
-/* Extended Device Control */
-#define E1000_CTRL_EXT_SDP2_DIR	0x00000400 /* SDP2 Data direction */
+#define E1000_CTRL_SDP0_DATA 0x00040000
+#define E1000_CTRL_SDP1_DATA 0x00080000
+#define E1000_CTRL_SDP0_DIR  0x00400000  /* SDP0 Data direction */
+#define E1000_CTRL_SDP1_DIR  0x00800000  /* SDP1 Data direction */
 
 /* ETQF register bit definitions */
 #define E1000_ETQF_1588			(1 << 30)
