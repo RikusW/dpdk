@@ -21,5 +21,8 @@ if not is_windows
                 'igc_filter.c',
                 'igc_flow.c',
                 'igc_txrx.c',
+                'rte_pmd_i210.c',
         )
 endif
+
+headers = files('rte_pmd_i210.h')
