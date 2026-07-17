@@ -243,6 +243,25 @@ static int igb_rx_burst_mode_get(struct rte_eth_dev *dev,
 	__rte_unused uint16_t queue_id, struct rte_eth_burst_mode *mode);
 
 /*
+ * i210 SDP
+ *
+ * pin_num = 0-3
+ * aux_register_set = 0-1
+ * target_register_set = 0-1
+ * len = ns pulse width
+ */
+static int eth_igb_sdp_setup(struct rte_eth_dev *dev,
+			uint8_t pin_num, bool output, bool pin_value);
+static int eth_igb_sdp_toggle(struct rte_eth_dev *dev,
+			uint8_t pin_num, uint8_t target_register_set, struct timespec *ts);
+static int eth_igb_sdp_pulse(struct rte_eth_dev *dev,
+			uint8_t pin_num, struct timespec *ts, uint32_t len);
+static int eth_igb_sdp_setup_timestamping(struct rte_eth_dev *dev,
+			uint8_t pin_num, uint8_t aux_timestamp_set, uint8_t enable);
+static int eth_igb_sdp_read_timestamp(struct rte_eth_dev *dev,
+			uint8_t aux_timestamp_set, struct timespec *ts);
+
+/*
  * Define VF Stats MACRO for Non "cleared on read" register
  */
 #define UPDATE_VF_STAT(reg, last, cur)            \
@@ -402,6 +421,13 @@ static const struct eth_dev_ops eth_igb_ops = {
 	.timesync_read_time   = igb_timesync_read_time,
 	.timesync_write_time  = igb_timesync_write_time,
 	.read_clock		      = eth_igb_read_clock,
+
+	/* i210 SDP */
+    .sdp_setup            = eth_igb_sdp_setup,
+    .sdp_toggle           = eth_igb_sdp_toggle,
+    .sdp_pulse            = eth_igb_sdp_pulse,
+    .sdp_setup_timestamping = eth_igb_sdp_setup_timestamping,
+    .sdp_read_timestamp   = eth_igb_sdp_read_timestamp,
 };
 
 /*

@@ -1367,6 +1367,29 @@ typedef int (*eth_count_aggr_ports_t)(struct rte_eth_dev *dev);
 typedef int (*eth_map_aggr_tx_affinity_t)(struct rte_eth_dev *dev, uint16_t tx_queue_id,
 					  uint8_t affinity);
 
+/*
+ * i210 SDP
+ *
+ * pin_num = 0-3
+ * aux_register_set = 0-1
+ * target_register_set = 0-1
+ * len = ns pulse width
+ */
+typedef int (*eth_sdp_setup_t)(struct rte_eth_dev *dev,
+            uint8_t pin_num, bool output, bool pin_value);
+
+typedef int (*eth_sdp_toggle_t)(struct rte_eth_dev *dev,
+            uint8_t pin_num, uint8_t target_register_set, struct timespec *ts);
+
+typedef int (*eth_sdp_pulse_t)(struct rte_eth_dev *dev,
+            uint8_t pin_num, struct timespec *ts, uint32_t len);
+
+typedef int (*eth_sdp_setup_timestamping_t)(struct rte_eth_dev *dev,
+            uint8_t pin_num, uint8_t aux_timestamp_set, uint8_t enable);
+
+typedef int (*eth_sdp_read_timestamp_t)(struct rte_eth_dev *dev,
+            uint8_t aux_timestamp_set, struct timespec *ts);
+
 /**
  * @internal
  * Defines types of operations which can be executed by the application.
@@ -1661,6 +1684,13 @@ struct eth_dev_ops {
 
 	/** Get configuration which ethdev should restore */
 	eth_get_restore_flags_t get_restore_flags;
+
+	/** i210 SDP interface */
+	eth_sdp_setup_t sdp_setup;
+	eth_sdp_toggle_t sdp_toggle;
+	eth_sdp_pulse_t sdp_pulse;
+	eth_sdp_setup_timestamping_t sdp_setup_timestamping;
+	eth_sdp_read_timestamp_t sdp_read_timestamp;
 };
 
 /**
