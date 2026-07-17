@@ -554,4 +554,27 @@ int igb_config_rss_filter(struct rte_eth_dev *dev,
 			bool add);
 void em_flush_desc_rings(struct rte_eth_dev *dev);
 
+/*
+ * i210 SDP
+ *
+ * pin_num = 0-3
+ * aux_register_set = 0-1
+ * target_register_set = 0-1
+ * len = ns pulse width
+ */
+int eth_igb_sdp_setup(struct rte_eth_dev *dev,
+            uint8_t pin_num, bool output, bool pin_value);
+
+int eth_igb_sdp_toggle(struct rte_eth_dev *dev,
+            uint8_t pin_num, uint8_t target_register_set, struct timespec *ts);
+
+int eth_igb_sdp_pulse(struct rte_eth_dev *dev,
+            uint8_t pin_num, struct timespec *ts, uint32_t len);
+
+int eth_igb_sdp_setup_timestamping(struct rte_eth_dev *dev,
+            uint8_t pin_num, uint8_t aux_timestamp_set, uint8_t enable);
+
+int eth_igb_sdp_read_timestamp(struct rte_eth_dev *dev,
+            uint8_t aux_timestamp_set, struct timespec *ts);
+
 #endif /* _E1000_ETHDEV_H_ */

@@ -5694,11 +5694,10 @@ igb_filter_restore(struct rte_eth_dev *dev)
 }
 
 int
-eth_igb_configure_sdp(struct rte_eth_dev *dev,
-			uint8_t pin_num, uint8_t output, uint8_t pin_value)
+eth_igb_sdp_setup(struct rte_eth_dev *dev,
+			uint8_t pin_num, bool output, bool pin_value)
 {
-	void *reg;
-	uint32_t ctrl, dir, data;
+	uint32_t ctrl, reg, dir, data;
 	struct e1000_hw *hw = E1000_DEV_PRIVATE_TO_HW(dev->data->dev_private);
 
 	/* Verify that we are executing on I210 hardware */
@@ -5711,18 +5710,22 @@ eth_igb_configure_sdp(struct rte_eth_dev *dev,
 		reg = E1000_CTRL; /* 8.2.1 */
 		dir = E1000_CTRL_SDP0_DIR;
 		data= E1000_CTRL_SDP0_DATA;
+		break;
 	case 1:
 		reg = E1000_CTRL;
 		dir = E1000_CTRL_SDP1_DIR;
 		data= E1000_CTRL_SDP1_DATA;
+		break;
 	case 2:
 		reg = E1000_CTRL_EXT; /* 8.2.3 */
-		dir = E1000_CTRL_SDP2_DIR;
-		data= E1000_CTRL_SDP2_DATA;
+		dir = E1000_CTRL_EXT_SDP2_DIR;
+		data= E1000_CTRL_EXT_SDP2_DATA;
+		break;
 	case 3:
 		reg = E1000_CTRL_EXT;
-		dir = E1000_CTRL_SDP3_DIR;
-		data= E1000_CTRL_SDP3_DATA;
+		dir = E1000_CTRL_EXT_SDP3_DIR;
+		data= E1000_CTRL_EXT_SDP3_DATA;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -5746,10 +5749,10 @@ eth_igb_configure_sdp(struct rte_eth_dev *dev,
 
 /* 7.8.3.3.1: Level Change Generation */
 int
-eth_igb_setup_systim_toggle(struct rte_eth_dev *dev,
+eth_igb_sdp_toggle(struct rte_eth_dev *dev,
 			uint8_t pin_num, uint8_t target_register_set, struct timespec *ts)
 {
-	uint32_t tssdp, ctrl_ext;
+	uint32_t tssdp, tsauxc;
 	struct e1000_hw *hw = E1000_DEV_PRIVATE_TO_HW(dev->data->dev_private);
 
 	if (pin_num > 3 || target_register_set > 1) {
@@ -5759,7 +5762,7 @@ eth_igb_setup_systim_toggle(struct rte_eth_dev *dev,
 		return -ENOTSUP;
 	}
 
-	eth_igb_configure_sdp(dev, pin_num, 1, 0); /* Set pin to output */
+	eth_igb_sdp_setup(dev, pin_num, 1, 0); /* Set pin to output */
 
 	/* Time of level change */
 	E1000_WRITE_REG(hw, E1000_TRGTTIML(target_register_set), ts->tv_nsec);
@@ -5772,7 +5775,7 @@ eth_igb_setup_systim_toggle(struct rte_eth_dev *dev,
 	E1000_WRITE_REG(hw, E1000_TSSDP, tssdp); /* 8.15.25 */
 
 	tsauxc = E1000_READ_REG(hw, E1000_TSAUXC);
-	tsauxo |= TSAUXC_EN_TT(target_register_set);
+	tsauxc |= TSAUXC_EN_TT(target_register_set);
 	tsauxc &= ~TSAUXC_PLSG;
 	E1000_WRITE_REG(hw, E1000_TSAUXC, tsauxc); /* 8.15.13 */
 
@@ -5782,10 +5785,10 @@ eth_igb_setup_systim_toggle(struct rte_eth_dev *dev,
 
 /* 7.8.3.3.2: Pulse Generation */
 int
-eth_igb_setup_systim_pulse(struct rte_eth_dev *dev,
+eth_igb_sdp_pulse(struct rte_eth_dev *dev,
 			uint8_t pin_num, struct timespec *ts, uint32_t len)
 {
-	uint32_t tssdp, tsauxc, ctrl_ext;
+	uint32_t tssdp, tsauxc;
 	struct e1000_hw *hw = E1000_DEV_PRIVATE_TO_HW(dev->data->dev_private);
 
 	if (pin_num > 3) {
@@ -5795,7 +5798,7 @@ eth_igb_setup_systim_pulse(struct rte_eth_dev *dev,
 		return -ENOTSUP;
 	}
 
-	eth_igb_configure_sdp(dev, pin_num, 1, 0); /* Set pin to output */
+	eth_igb_sdp_setup(dev, pin_num, 1, 0); /* Set pin to output */
 
 	/* Start of pulse */
 	E1000_WRITE_REG(hw, E1000_TRGTTIML0, (uint32_t)ts->tv_nsec);
@@ -5825,7 +5828,7 @@ eth_igb_setup_systim_pulse(struct rte_eth_dev *dev,
 
 /* 7.8.3.4: Time Stamp Input Event Activation */
 int
-eth_igb_setup_sdp_timestamping(struct rte_eth_dev *dev,
+eth_igb_sdp_setup_timestamping(struct rte_eth_dev *dev,
 			uint8_t pin_num, uint8_t aux_timestamp_set, uint8_t enable)
 {
 	uint32_t tssdp, tsauxc;
@@ -5837,7 +5840,7 @@ eth_igb_setup_sdp_timestamping(struct rte_eth_dev *dev,
 	if (hw->mac.type != e1000_i210) {
 		return -ENOTSUP;
 	}
-	eth_igb_configure_sdp(dev, pin_num, 0, 0); /* Set pin to input */
+	eth_igb_sdp_setup(dev, pin_num, 0, 0); /* Set pin to input */
 
 	/* Configure TSSDP pin mapping */
 	tssdp = E1000_READ_REG(hw, E1000_TSSDP);
@@ -5845,11 +5848,11 @@ eth_igb_setup_sdp_timestamping(struct rte_eth_dev *dev,
 	AUXx_SEL_SDPnr(aux_timestamp_set, pin_num, tssdp);
 	if (enable) {
 		/* Enable hardware timestamping */
-		ssdp |= AUXx_TS_SDP_EN(aux_timestamp_set);
+		tssdp |= AUXx_TS_SDP_EN(aux_timestamp_set);
 		tsauxc |= aux_timestamp_set == 0 ? TSAUXC_EN_TS0 : TSAUXC_EN_TS1;
 	} else {
 		/* Disable hardware timestamping */
-		ssdp &= ~(AUXx_TS_SDP_EN(aux_timestamp_set));
+		tssdp &= ~(AUXx_TS_SDP_EN(aux_timestamp_set));
 		tsauxc &= ~(aux_timestamp_set == 0 ? TSAUXC_EN_TS0 : TSAUXC_EN_TS1);
 	}
 	E1000_WRITE_REG(hw, E1000_TSSDP, tssdp); /* 8.15.25 */
@@ -5861,10 +5864,10 @@ eth_igb_setup_sdp_timestamping(struct rte_eth_dev *dev,
 
 /* Retrieve Latched Timestamp Data - set tsa and tsb to 0 before calling*/
 int
-eth_igb_read_sdp_timestamp(struct rte_eth_dev *dev,
+eth_igb_sdp_read_timestamp(struct rte_eth_dev *dev,
 			uint8_t aux_timestamp_set, struct timespec *ts)
 {
-	uint32_t lo, hi, tsauxc;
+	uint32_t tsauxc;
 	struct e1000_hw *hw = E1000_DEV_PRIVATE_TO_HW(dev->data->dev_private);
 
 	if (!ts) {
@@ -5881,8 +5884,8 @@ eth_igb_read_sdp_timestamp(struct rte_eth_dev *dev,
 		return -EAGAIN; /* No raw edge trigger captured yet */
 	}
 
-	tsa->ts_nsec = E1000_READ_REG(hw, E1000_AUXSTMPL(aux_timestamp_set));
-	tsa->ts_sec  = E1000_READ_REG(hw, E1000_AUXSTMPH(aux_timestamp_set));
+	ts->tv_nsec = E1000_READ_REG(hw, E1000_AUXSTMPL(aux_timestamp_set));
+	ts->tv_sec  = E1000_READ_REG(hw, E1000_AUXSTMPH(aux_timestamp_set));
 	return 0;
 }
 
