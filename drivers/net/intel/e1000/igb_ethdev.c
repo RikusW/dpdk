@@ -5692,7 +5692,10 @@ igb_filter_restore(struct rte_eth_dev *dev)
 
 	return 0;
 }
-int eth_igb_configure_sdp(struct rte_eth_dev *dev, uint8_t pin_num, uint8_t output, uint8_t pin_value)
+
+int
+eth_igb_configure_sdp(struct rte_eth_dev *dev,
+			uint8_t pin_num, uint8_t output, uint8_t pin_value)
 {
 	void *reg;
 	uint32_t ctrl, dir, data;
@@ -5742,7 +5745,9 @@ int eth_igb_configure_sdp(struct rte_eth_dev *dev, uint8_t pin_num, uint8_t outp
 }
 
 /* 7.8.3.3.1: Level Change Generation */
-int eth_igb_setup_systim_toggle(struct rte_eth_dev *dev, uint8_t pin_num, uint8_t target_register_set, struct timespec *ts)
+int
+eth_igb_setup_systim_toggle(struct rte_eth_dev *dev,
+			uint8_t pin_num, uint8_t target_register_set, struct timespec *ts)
 {
 	uint32_t tssdp, ctrl_ext;
 	struct e1000_hw *hw = E1000_DEV_PRIVATE_TO_HW(dev->data->dev_private);
@@ -5756,8 +5761,9 @@ int eth_igb_setup_systim_toggle(struct rte_eth_dev *dev, uint8_t pin_num, uint8_
 
 	eth_igb_configure_sdp(dev, pin_num, 1, 0); /* Set pin to output */
 
-	E1000_WRITE_REG(hw, E1000_TRGTTIML(target_register_set), (uint32_t)ts->tv_nsec); /* Time of level change */
-	E1000_WRITE_REG(hw, E1000_TRGTTIMH(target_register_set), (uint32_t)ts->tv_sec);
+	/* Time of level change */
+	E1000_WRITE_REG(hw, E1000_TRGTTIML(target_register_set), ts->tv_nsec);
+	E1000_WRITE_REG(hw, E1000_TRGTTIMH(target_register_set), ts->tv_sec);
 
 	/* Assign the chosen target timer onto the hardware pin via TSSDP */
 	tssdp = E1000_READ_REG(hw, E1000_TSSDP);
@@ -5775,7 +5781,9 @@ int eth_igb_setup_systim_toggle(struct rte_eth_dev *dev, uint8_t pin_num, uint8_
 }
 
 /* 7.8.3.3.2: Pulse Generation */
-int eth_igb_setup_systim_pulse(struct rte_eth_dev *dev, uint8_t pin_num, struct timespec *ts, uint32_t len)
+int
+eth_igb_setup_systim_pulse(struct rte_eth_dev *dev,
+			uint8_t pin_num, struct timespec *ts, uint32_t len)
 {
 	uint32_t tssdp, tsauxc, ctrl_ext;
 	struct e1000_hw *hw = E1000_DEV_PRIVATE_TO_HW(dev->data->dev_private);
@@ -5789,12 +5797,15 @@ int eth_igb_setup_systim_pulse(struct rte_eth_dev *dev, uint8_t pin_num, struct 
 
 	eth_igb_configure_sdp(dev, pin_num, 1, 0); /* Set pin to output */
 
-	E1000_WRITE_REG(hw, E1000_TRGTTIML0, (uint32_t)ts->tv_nsec); /* Start of pulse */
+	/* Start of pulse */
+	E1000_WRITE_REG(hw, E1000_TRGTTIML0, (uint32_t)ts->tv_nsec);
 	E1000_WRITE_REG(hw, E1000_TRGTTIMH0, (uint32_t)ts->tv_sec);
+
+	/* End of pulse */
 	ts->tv_nsec += len;
 	ts->tv_sec += ts->tv_nsec / 1000000000;
 	ts->tv_nsec = ts->tv_nsec % 1000000000;
-	E1000_WRITE_REG(hw, E1000_TRGTTIML1, (uint32_t)ts->tv_nsec); /* End of pulse */
+	E1000_WRITE_REG(hw, E1000_TRGTTIML1, (uint32_t)ts->tv_nsec);
 	E1000_WRITE_REG(hw, E1000_TRGTTIMH1, (uint32_t)ts->tv_sec);
 
 	/* Assign the chosen target timer onto the hardware pin via TSSDP */
@@ -5813,7 +5824,9 @@ int eth_igb_setup_systim_pulse(struct rte_eth_dev *dev, uint8_t pin_num, struct 
 }
 
 /* 7.8.3.4: Time Stamp Input Event Activation */
-int eth_igb_setup_sdp_timestamping(struct rte_eth_dev *dev, uint8_t pin_num, uint8_t aux_timestamp_set, uint8_t enable)
+int
+eth_igb_setup_sdp_timestamping(struct rte_eth_dev *dev,
+			uint8_t pin_num, uint8_t aux_timestamp_set, uint8_t enable)
 {
 	uint32_t tssdp, tsauxc;
 	struct e1000_hw *hw = E1000_DEV_PRIVATE_TO_HW(dev->data->dev_private);
@@ -5826,15 +5839,18 @@ int eth_igb_setup_sdp_timestamping(struct rte_eth_dev *dev, uint8_t pin_num, uin
 	}
 	eth_igb_configure_sdp(dev, pin_num, 0, 0); /* Set pin to input */
 
+	/* Configure TSSDP pin mapping */
 	tssdp = E1000_READ_REG(hw, E1000_TSSDP);
 	tsauxc = E1000_READ_REG(hw, E1000_TSAUXC);
-	AUXx_SEL_SDPnr(aux_timestamp_set, pin_num, tssdp); /* Configure TSSDP pin mapping */
+	AUXx_SEL_SDPnr(aux_timestamp_set, pin_num, tssdp);
 	if (enable) {
+		/* Enable hardware timestamping */
 		ssdp |= AUXx_TS_SDP_EN(aux_timestamp_set);
-		tsauxc |= aux_timestamp_set == 0 ? TSAUXC_EN_TS0 : TSAUXC_EN_TS1; /* Enable hardware timestamping */
+		tsauxc |= aux_timestamp_set == 0 ? TSAUXC_EN_TS0 : TSAUXC_EN_TS1;
 	} else {
+		/* Disable hardware timestamping */
 		ssdp &= ~(AUXx_TS_SDP_EN(aux_timestamp_set));
-		tsauxc &= ~(aux_timestamp_set == 0 ? TSAUXC_EN_TS0 : TSAUXC_EN_TS1); /* Disable hardware timestamping */
+		tsauxc &= ~(aux_timestamp_set == 0 ? TSAUXC_EN_TS0 : TSAUXC_EN_TS1);
 	}
 	E1000_WRITE_REG(hw, E1000_TSSDP, tssdp); /* 8.15.25 */
 	E1000_WRITE_REG(hw, E1000_TSAUXC, tsauxc); /* 8.15.13 */
@@ -5844,7 +5860,9 @@ int eth_igb_setup_sdp_timestamping(struct rte_eth_dev *dev, uint8_t pin_num, uin
 }
 
 /* Retrieve Latched Timestamp Data - set tsa and tsb to 0 before calling*/
-int eth_igb_read_sdp_timestamp(struct rte_eth_dev *dev, uint8_t aux_timestamp_set, struct timespec *ts)
+int
+eth_igb_read_sdp_timestamp(struct rte_eth_dev *dev,
+			uint8_t aux_timestamp_set, struct timespec *ts)
 {
 	uint32_t lo, hi, tsauxc;
 	struct e1000_hw *hw = E1000_DEV_PRIVATE_TO_HW(dev->data->dev_private);
