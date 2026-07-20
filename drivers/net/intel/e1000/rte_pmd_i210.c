@@ -45,6 +45,55 @@
 #define E1000_CTRL_EXT_SDP2_DATA 0x00000040 /* SW Definable Pin 2 data */
 #define E1000_CTRL_EXT_SDP2_DIR  0x00000400 /* Direction of SDP2 0=in 1=out */
 
+static int get_rdd(uint8_t pin_num, uint32_t *reg, uint32_t *dir, uint32_t *data)
+{
+
+	switch(pin_num) {
+	case 0:
+		*reg = E1000_CTRL; /* 8.2.1 */
+		*dir = E1000_CTRL_SDP0_DIR;
+		*data= E1000_CTRL_SDP0_DATA;
+		break;
+	case 1:
+		*reg = E1000_CTRL;
+		*dir = E1000_CTRL_SDP1_DIR;
+		*data= E1000_CTRL_SDP1_DATA;
+		break;
+	case 2:
+		*reg = E1000_CTRL_EXT; /* 8.2.3 */
+		*dir = E1000_CTRL_EXT_SDP2_DIR;
+		*data= E1000_CTRL_EXT_SDP2_DATA;
+		break;
+	case 3:
+		*reg = E1000_CTRL_EXT;
+		*dir = E1000_CTRL_EXT_SDP3_DIR;
+		*data= E1000_CTRL_EXT_SDP3_DATA;
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
+RTE_EXPORT_EXPERIMENTAL_SYMBOL(rte_pmd_i210_sdp_get, 25.11)
+__rte_experimental
+int rte_pmd_i210_sdp_get(uint16_t port, uint8_t pin_num, bool *pin_value)
+{
+	uint32_t reg, dir, data;
+	RTE_ETH_VALID_PORTID_OR_ERR_RET(port, -ENODEV);
+    struct rte_eth_dev *dev = &rte_eth_devices[port];
+	struct e1000_hw *hw = E1000_DEV_PRIVATE_TO_HW(dev->data->dev_private);
+	if (hw->mac.type != e1000_i210) {
+		return -ENOTSUP;
+	}
+	if (get_rdd(pin_num, &reg, &dir, &data) < 0) {
+		return -EINVAL;
+	}
+
+	*pin_value = (E1000_READ_REG(hw, reg) & data) != 0;
+	return 0;
+}
+
 RTE_EXPORT_EXPERIMENTAL_SYMBOL(rte_pmd_i210_sdp_setup, 25.11)
 __rte_experimental
 int rte_pmd_i210_sdp_setup(uint16_t port,
@@ -57,29 +106,7 @@ int rte_pmd_i210_sdp_setup(uint16_t port,
 	if (hw->mac.type != e1000_i210) {
 		return -ENOTSUP;
 	}
-
-	switch(pin_num) {
-	case 0:
-		reg = E1000_CTRL; /* 8.2.1 */
-		dir = E1000_CTRL_SDP0_DIR;
-		data= E1000_CTRL_SDP0_DATA;
-		break;
-	case 1:
-		reg = E1000_CTRL;
-		dir = E1000_CTRL_SDP1_DIR;
-		data= E1000_CTRL_SDP1_DATA;
-		break;
-	case 2:
-		reg = E1000_CTRL_EXT; /* 8.2.3 */
-		dir = E1000_CTRL_EXT_SDP2_DIR;
-		data= E1000_CTRL_EXT_SDP2_DATA;
-		break;
-	case 3:
-		reg = E1000_CTRL_EXT;
-		dir = E1000_CTRL_EXT_SDP3_DIR;
-		data= E1000_CTRL_EXT_SDP3_DATA;
-		break;
-	default:
+	if (get_rdd(pin_num, &reg, &dir, &data) < 0) {
 		return -EINVAL;
 	}
 

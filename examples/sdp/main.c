@@ -17,13 +17,16 @@
 bool checkarg(int argc, char *argv[], const char *p, uint8_t cnt)
 {
 	int i;
-	if (argc < cnt) {
+	if (argc < cnt || argc == 0) {
 		return false;
 	}
 	for (i = 1; i < cnt; i++) {
 		if (argv[i][0] == '-' && argv[i][1] == '-') {
 			return false;
 		}
+	}
+	if (strcmp(argv[0], p)) {
+		return false;
 	}
 	return true;
 }
@@ -47,7 +50,7 @@ int main(int argc, char *argv[])
 		if (checkarg(argc, argv, "--port", 2)) {
 			port = atoi(argv[1]);
 		} else
-		if (checkarg(argc, argv, "--pin", 4)) {
+		if (checkarg(argc, argv, "--setpin", 4)) {
 			uint8_t pin = atoi(argv[1]);
 			bool output = atoi(argv[2]);
 			bool value  = atoi(argv[3]);
@@ -55,6 +58,15 @@ int main(int argc, char *argv[])
 			if (rte_pmd_i210_sdp_setup(port, pin, output, value) < 0) {
 				puts("rte_pmd_i210_sdp_setup failed");
 			}
+		} else
+		if (checkarg(argc, argv, "--getpin", 2)) {
+			uint8_t pin = atoi(argv[1]);
+
+			bool value;
+			if (rte_pmd_i210_sdp_get(port, pin, &value) < 0) {
+				puts("rte_pmd_i210_sdp_get failed");
+			}
+			printf("Pin %hhu value = %hhu\n", pin, value);
 		} else
 		if (checkarg(argc, argv, "--toggle", 3)) {
 			uint8_t pin = atoi(argv[1]);
@@ -92,7 +104,7 @@ int main(int argc, char *argv[])
 				struct timespec ts;
 				int ret = rte_pmd_i210_sdp_read_timestamp(port, 0, &ts);
 				if (ret == 0) {
-					printf("Level change on pin %hhu at %li.%li\n", pin, ts.tv_sec, ts.tv_nsec);
+					printf("Level change on pin %hhu at %li.%09li\n", pin, ts.tv_sec, ts.tv_nsec);
 				} else
 				if (ret != -EAGAIN) {
 					puts("rte_pmd_i210_sdp_read_timestamp failed");
@@ -105,7 +117,7 @@ int main(int argc, char *argv[])
 			if (rte_pmd_i210_get_system_time(port, &ts) < 0) {
 				puts("rte_pmd_i210_get_system_time failed");
 			} else {
-				printf("Systime = %li.%li\n", ts.tv_sec, ts.tv_nsec);
+				printf("Systime = %li.%09li\n", ts.tv_sec, ts.tv_nsec);
 			}
 		} else
 		if (checkarg(argc, argv, "--delay", 2)) {

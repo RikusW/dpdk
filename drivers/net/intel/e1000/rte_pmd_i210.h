@@ -15,6 +15,10 @@
  * target_register_set = 0-1
  * len = ns pulse width
  */
+
+__rte_experimental
+int rte_pmd_i210_sdp_get(uint16_t port, uint8_t pin_num, bool *pin_value);
+
 __rte_experimental
 int rte_pmd_i210_sdp_setup(uint16_t port,
             uint8_t pin_num, bool output, bool pin_value);
