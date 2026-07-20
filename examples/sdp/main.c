@@ -95,11 +95,13 @@ int main(int argc, char *argv[])
 				puts("rte_pmd_i210_sdp_toggle failed");
 			}
 		} else
-		if (checkarg(argc, argv, "--timestamp", 2)) {
+		if (checkarg(argc, argv, "--timestamp", 3)) {
 			uint8_t pin = atoi(argv[1]);
+			int i, cnt = atoi(argv[2]);
 
 			int ret = -EAGAIN;
 			rte_pmd_i210_sdp_setup_timestamping(port, pin, 0, true);
+			for (i = 0; i <= cnt; i++)
 			while (ret == -EAGAIN) {
 				struct timespec ts;
 				int ret = rte_pmd_i210_sdp_read_timestamp(port, 0, &ts);
@@ -108,6 +110,7 @@ int main(int argc, char *argv[])
 				} else
 				if (ret != -EAGAIN) {
 					puts("rte_pmd_i210_sdp_read_timestamp failed");
+					i = cnt;
 					break;
 				}
 			}
