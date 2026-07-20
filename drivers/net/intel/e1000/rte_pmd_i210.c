@@ -92,7 +92,7 @@ int rte_pmd_i210_sdp_setup(uint16_t port,
 			ctrl &= ~data;
 		}
 	} else {
-		ctrl &= ~dir;
+		ctrl &= ~dir; /* input */
 	}
 	E1000_WRITE_REG(hw, reg, ctrl);
 
@@ -187,7 +187,7 @@ int rte_pmd_i210_sdp_pulse(uint16_t port,
 RTE_EXPORT_EXPERIMENTAL_SYMBOL(rte_pmd_i210_sdp_setup_timestamping, 25.11)
 __rte_experimental
 int rte_pmd_i210_sdp_setup_timestamping(uint16_t port,
-			uint8_t pin_num, uint8_t aux_timestamp_set, uint8_t enable)
+			uint8_t pin_num, uint8_t aux_timestamp_set, bool enable)
 {
 	uint32_t tssdp, tsauxc;
 	RTE_ETH_VALID_PORTID_OR_ERR_RET(port, -ENODEV);
@@ -248,5 +248,25 @@ int rte_pmd_i210_sdp_read_timestamp(uint16_t port,
 
 	ts->tv_nsec = E1000_READ_REG(hw, E1000_AUXSTMPL(aux_timestamp_set));
 	ts->tv_sec  = E1000_READ_REG(hw, E1000_AUXSTMPH(aux_timestamp_set));
+	return 0;
+}
+
+RTE_EXPORT_EXPERIMENTAL_SYMBOL(rte_pmd_i210_get_system_time, 25.11)
+__rte_experimental
+int rte_pmd_i210_get_system_time(uint16_t port, struct timespec *ts)
+{
+	RTE_ETH_VALID_PORTID_OR_ERR_RET(port, -ENODEV);
+    struct rte_eth_dev *dev = &rte_eth_devices[port];
+	struct e1000_hw *hw = E1000_DEV_PRIVATE_TO_HW(dev->data->dev_private);
+	if (hw->mac.type != e1000_i210) {
+		return -ENOTSUP;
+	}
+	if (!ts) {
+		return -EINVAL;
+	}
+
+	ts->tv_nsec = E1000_READ_REG(hw, E1000_SYSTIMR);
+	ts->tv_nsec = E1000_READ_REG(hw, E1000_SYSTIML);
+	ts->tv_sec  = E1000_READ_REG(hw, E1000_SYSTIMH);
 	return 0;
 }

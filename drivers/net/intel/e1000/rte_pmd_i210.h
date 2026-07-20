@@ -29,10 +29,13 @@ int rte_pmd_i210_sdp_pulse(uint16_t port,
 
 __rte_experimental
 int rte_pmd_i210_sdp_setup_timestamping(uint16_t port,
-            uint8_t pin_num, uint8_t aux_timestamp_set, uint8_t enable);
+            uint8_t pin_num, uint8_t aux_timestamp_set, bool enable);
 
 __rte_experimental
 int rte_pmd_i210_sdp_read_timestamp(uint16_t port,
             uint8_t aux_timestamp_set, struct timespec *ts);
+
+__rte_experimental
+int rte_pmd_i210_get_system_time(uint16_t port, struct timespec *ts);
 
 #endif /* _RTE_PMD_I210_H_ */
