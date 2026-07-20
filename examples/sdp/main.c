@@ -11,6 +11,7 @@
 
 #include <rte_eal.h>
 #include <rte_debug.h>
+#include <rte_ethdev.h>
 #include <rte_pmd_i210.h>
 
 bool checkarg(int argc, char *argv[], const char *p, uint8_t cnt)
@@ -34,6 +35,10 @@ int main(int argc, char *argv[])
 	if (ret < 0) {
 		rte_panic("Cannot init EAL\n");
 	}
+	if (rte_eth_timesync_enable(port) < 0) {
+		puts("rte_eth_timesync_enable failed");
+	}
+
 	/* arguments after -- */
 	argc -= ret;
 	argv += ret;
@@ -117,6 +122,9 @@ int main(int argc, char *argv[])
 		} while (!(argv[0][0] == '-' && argv[0][1] == '-'));
 	}
 
+	if (rte_eth_timesync_disable(port) < 0) {
+		puts("rte_eth_timesync_disable failed");
+	}
 	rte_eal_cleanup();
 
 	return 0;
