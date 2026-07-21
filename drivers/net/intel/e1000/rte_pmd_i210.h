@@ -24,6 +24,9 @@ int rte_pmd_i210_sdp_setup(uint16_t port,
             uint8_t pin_num, bool output, bool pin_value);
 
 __rte_experimental
+int rte_pmd_i210_sdp_cleanup(uint16_t port);
+
+__rte_experimental
 int rte_pmd_i210_sdp_toggle(uint16_t port,
             uint8_t pin_num, uint8_t target_register_set, struct timespec *ts);
 

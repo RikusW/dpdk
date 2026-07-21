@@ -127,6 +127,22 @@ int rte_pmd_i210_sdp_setup(uint16_t port,
 	return 0;
 }
 
+RTE_EXPORT_EXPERIMENTAL_SYMBOL(rte_pmd_i210_sdp_cleanup, 25.11)
+__rte_experimental
+int rte_pmd_i210_sdp_cleanup(uint16_t port)
+{
+	RTE_ETH_VALID_PORTID_OR_ERR_RET(port, -ENODEV);
+    struct rte_eth_dev *dev = &rte_eth_devices[port];
+	struct e1000_hw *hw = E1000_DEV_PRIVATE_TO_HW(dev->data->dev_private);
+	if (hw->mac.type != e1000_i210) {
+		return -ENOTSUP;
+	}
+	E1000_WRITE_REG(hw, E1000_TSSDP, 0); /* 8.15.25 */
+	E1000_WRITE_REG(hw, E1000_TSAUXC, 0x40000000); /* 8.15.13 */
+	E1000_WRITE_FLUSH(hw);
+	return 0;
+}
+
 /* 7.8.3.3.1: Level Change Generation */
 RTE_EXPORT_EXPERIMENTAL_SYMBOL(rte_pmd_i210_sdp_toggle, 25.11)
 __rte_experimental
@@ -143,8 +159,6 @@ int rte_pmd_i210_sdp_toggle(uint16_t port,
 	if (pin_num > 3 || target_register_set > 1) {
 		return -EINVAL;
 	}
-
-	rte_pmd_i210_sdp_setup(port, pin_num, 1, 0); /* Set pin to output */
 
 	/* Time of level change */
 	E1000_WRITE_REG(hw, E1000_TRGTTIML(target_register_set), ts->tv_nsec);
@@ -181,8 +195,6 @@ int rte_pmd_i210_sdp_pulse(uint16_t port,
 	if (pin_num > 3) {
 		return -EINVAL;
 	}
-
-	rte_pmd_i210_sdp_setup(port, pin_num, 1, 0); /* Set pin to output */
 
 	/* Start of pulse */
 	E1000_WRITE_REG(hw, E1000_TRGTTIML0, (uint32_t)ts->tv_nsec);
@@ -269,7 +281,7 @@ int rte_pmd_i210_sdp_read_timestamp(uint16_t port,
 	/* Check if hardware has latched an event via checking TSAUXC status */
 	tsauxc = E1000_READ_REG(hw, E1000_TSAUXC); /* 8.15.13 */
 	uint32_t event_bit = (aux_timestamp_set == 0) ? TSAUXC_AUTT0 : TSAUXC_AUTT1;
-	if (tsauxc & event_bit) {
+	if (!(tsauxc & event_bit)) {
 		return -EAGAIN; /* No raw edge trigger captured yet */
 	}
 

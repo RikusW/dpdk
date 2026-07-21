@@ -14,7 +14,7 @@
 #include <rte_ethdev.h>
 #include <rte_pmd_i210.h>
 
-bool checkarg(int argc, char *argv[], const char *p, uint8_t cnt)
+static bool checkarg(int argc, char *argv[], const char *p, uint8_t cnt)
 {
 	int i;
 	if (argc < cnt || argc == 0) {
@@ -29,6 +29,17 @@ bool checkarg(int argc, char *argv[], const char *p, uint8_t cnt)
 		return false;
 	}
 	return true;
+}
+
+static void addts(struct timespec *ts, int d)
+{
+	if (d < 50) {
+		puts("Warning use at least 50us to account for setup time");
+	}
+	d *= 1000; //use us
+	ts->tv_nsec+= d;
+	ts->tv_sec += ts->tv_nsec / 1000000000;
+	ts->tv_nsec = ts->tv_nsec % 1000000000;
 }
 
 int main(int argc, char *argv[])
@@ -68,16 +79,22 @@ int main(int argc, char *argv[])
 			}
 			printf("Pin %hhu value = %hhu\n", pin, value);
 		} else
+		if (!strcmp(argv[0], "--cleanup")) {
+			if (rte_pmd_i210_sdp_cleanup(port) < 0) {
+				puts("rte_pmd_i210_sdp_cleanup failed");
+			}
+		} else
 		if (checkarg(argc, argv, "--toggle", 3)) {
 			uint8_t pin = atoi(argv[1]);
-			uint8_t delay = atoi(argv[2]);
+			uint8_t tr = atoi(argv[2]) & 1;
+			int delay = atoi(argv[3]);
 
 			struct timespec ts;
 			if (rte_pmd_i210_get_system_time(port, &ts) < 0) {
 				puts("rte_pmd_i210_get_system_time failed");
 			}
-			ts.tv_sec += delay;
-			if (rte_pmd_i210_sdp_toggle(port, pin, 0, &ts) < 0) {
+			addts(&ts, delay);
+			if (rte_pmd_i210_sdp_toggle(port, pin, tr, &ts) < 0) {
 				puts("rte_pmd_i210_sdp_toggle failed");
 			}
 		} else
@@ -90,7 +107,7 @@ int main(int argc, char *argv[])
 			if (rte_pmd_i210_get_system_time(port, &ts) < 0) {
 				puts("rte_pmd_i210_get_system_time failed");
 			}
-			ts.tv_sec += delay;
+			addts(&ts, delay);
 			if (rte_pmd_i210_sdp_pulse(port, pin, &ts, len) < 0) {
 				puts("rte_pmd_i210_sdp_toggle failed");
 			}
@@ -107,6 +124,7 @@ int main(int argc, char *argv[])
 				int ret = rte_pmd_i210_sdp_read_timestamp(port, 0, &ts);
 				if (ret == 0) {
 					printf("Level change on pin %hhu at %li.%09li\n", pin, ts.tv_sec, ts.tv_nsec);
+					break;
 				} else
 				if (ret != -EAGAIN) {
 					puts("rte_pmd_i210_sdp_read_timestamp failed");
@@ -126,6 +144,8 @@ int main(int argc, char *argv[])
 		if (checkarg(argc, argv, "--delay", 2)) {
 			int delay = atoi(argv[1]);
 			usleep(delay);
+		} else {
+			printf("Unknown option %s\n", argv[0]);
 		}
 
 		do {
