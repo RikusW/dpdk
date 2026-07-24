@@ -87,11 +87,15 @@ int main(int argc, char *argv[])
 		puts("rte_eth_timesync_enable failed");
 	}
 
-	/* arguments after -- */
-	argc -= ret;
-	argv += ret;
-
 	while (argc > 0) {
+		do {
+			argc--;
+			argv++;
+			if (argc <= 0) {
+				goto exit;
+			}
+		} while (!(argv[0][0] == '-' && argv[0][1] == '-'));
+
 		if (checkarg(argc, argv, "--port", 2)) {
 			port = atoi(argv[1]);
 		} else
@@ -205,14 +209,6 @@ int main(int argc, char *argv[])
 		} else {
 			printf("Unknown option %s\n", argv[0]);
 		}
-
-		do {
-			argc--;
-			argv++;
-			if (argc <= 0) {
-				goto exit;
-			}
-		} while (!(argv[0][0] == '-' && argv[0][1] == '-'));
 	}
 exit:
 	if (rte_eth_timesync_disable(port) < 0) {
