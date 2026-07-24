@@ -31,15 +31,16 @@ static bool checkarg(int argc, char *argv[], const char *p, uint8_t cnt)
 	return true;
 }
 
-static void addts(struct timespec *ts, int d)
+static void addts(struct timespec *ts, uint32_t d)
 {
 	if (d < 50) {
 		puts("Warning use at least 50us to account for setup time");
 	}
-	d *= 1000; //use us
-	ts->tv_nsec+= d;
-	ts->tv_sec += ts->tv_nsec / 1000000000;
-	ts->tv_nsec = ts->tv_nsec % 1000000000;
+	uint64_t t = d;
+	t *= 1000; //use us
+	t += ts->tv_nsec;
+	ts->tv_sec += t / 1000000000;
+	ts->tv_nsec = t % 1000000000;
 }
 
 struct str_to_func
@@ -48,7 +49,7 @@ struct str_to_func
 	enum i210_sdp_function func;
 };
 
-static const struct str_to_func s2f[9] =
+static const struct str_to_func s2f[10] =
 {
 	{ "input",   i210_sdp_input },
 	{ "outputl", i210_sdp_outputl },
@@ -59,13 +60,14 @@ static const struct str_to_func s2f[9] =
 	{ "clock1",  i210_sdp_clock1 },
 	{ "capture0",i210_sdp_capture0 },
 	{ "capture1",i210_sdp_capture1 },
+	{ "pulse"   ,i210_sdp_pulse },
 };
 
 static enum i210_sdp_function str2func(const char *s)
 {
 	int i;
 
-	for (i = 0; i < 9; i++) {
+	for (i = 0; i < 10; i++) {
 		if (!strcmp(s2f[i].str, s)) {
 			return s2f[i].func;
 		}
@@ -148,6 +150,18 @@ int main(int argc, char *argv[])
 			}
 			printf("Toggle0 at %lu.%09lu\n", ts0.tv_sec, ts0.tv_nsec);
 			printf("Toggle1 at %lu.%09lu\n", ts1.tv_sec, ts1.tv_nsec);
+		} else
+		if (checkarg(argc, argv, "--pulse", 2)) {
+			int len = atoi(argv[1]); //ns
+
+			struct timespec ts;
+			if (rte_pmd_i210_get_system_time(port, &ts) < 0) {
+				puts("rte_pmd_i210_get_system_time failed");
+			}
+			addts(&ts, 50);
+			if (rte_pmd_i210_sdp_pulse(port, &ts, len) < 0) {
+				puts("rte_pmd_i210_sdp_pulse failed");
+			}
 		} else
 		if (checkarg(argc, argv, "--clock", 3)) {
 			uint8_t clockx = atoi(argv[1]) & 1;

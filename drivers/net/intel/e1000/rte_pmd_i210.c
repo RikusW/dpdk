@@ -90,17 +90,20 @@ static void sdp_set_function(struct e1000_hw *hw, uint8_t pin_num,
 	}
 	E1000_WRITE_REG(hw, reg, ctrl);
 
-	switch (f & 0x60) {
-	case 0x20: //event
-		/* 7.8.3.3.1: Level Change Generation */
-		/* Assign the chosen target timer onto the hardware pin via TSSDP */
+	switch (f & 0xE0) {
+	case 0x20: /* 7.8.3.3.1: Level Change Generation */
 		*tssdp |= TS_SDPn_EN(pin_num);
 		TS_SDPn_SEL_TTxr(pin_num, f >> 4, *tssdp);
 		*tsauxc &= ~TSAUXC_PLSG;
 		break;
 
-	case 0x40: //clock
-		/* Assign the chosen clock onto the hardware pin via TSSDP */
+	case 0x80: /* 7.8.3.3.2 Pulse generation */
+		*tssdp |= TS_SDPn_EN(pin_num);
+		TS_SDPn_SEL_TTxr(pin_num, 0, *tssdp);
+		*tsauxc |= TSAUXC_PLSG;
+		break;
+
+	case 0x40: /* 7.8.3.3.3 Synchronized Output Clock */
 		E1000_WRITE_REG(hw, E1000_TRGTTIML(f >> 4), 0);
 		E1000_WRITE_REG(hw, E1000_TRGTTIMH(f >> 4), 0);
 		*tssdp |= TS_SDPn_EN(pin_num);
@@ -108,8 +111,7 @@ static void sdp_set_function(struct e1000_hw *hw, uint8_t pin_num,
 		*tsauxc &= ~TSAUXC_PLSG;
 		break;
 
-	case 0x60: //capture
-		/* 7.8.3.4: Time Stamp Input Event Activation */
+	case 0x60: /* 7.8.3.4 Time Stamp Events */
 		AUXx_SEL_SDPnr(f >> 4, pin_num, *tssdp);
 		*tssdp |= AUXx_TS_SDP_EN(f >> 4);
 		*tsauxc |= f & 0x10 ? TSAUXC_EN_TS1 : TSAUXC_EN_TS0;
@@ -178,6 +180,9 @@ int rte_pmd_i210_sdp_disable_function(uint16_t port, enum i210_sdp_function f)
 		break;
 	case i210_sdp_capture1:
 		tsauxc &= ~TSAUXC_EN_TS1;
+		break;
+	case i210_sdp_pulse:
+		tsauxc &= ~(TSAUXC_EN_TT0 | TSAUXC_EN_TT1 | TSAUXC_PLSG);
 		break;
 	default:
 		return -EINVAL;
@@ -275,10 +280,12 @@ int rte_pmd_i210_sdp_toggle(uint16_t port, uint8_t eventx, struct timespec *ts)
 	E1000_WRITE_REG(hw, E1000_TRGTTIMH(eventx), ts->tv_sec);
 
 	uint32_t tsauxc = E1000_READ_REG(hw, E1000_TSAUXC);
-	tsauxc |= eventx ? TSAUXC_EN_TT1 : TSAUXC_EN_TT0;
-	E1000_WRITE_REG(hw, E1000_TSAUXC, tsauxc); /* 8.15.13 */
-
-	E1000_WRITE_FLUSH(hw);
+	if (!(tsauxc & (eventx ? TSAUXC_EN_TT1 : TSAUXC_EN_TT0))) {
+		//puts("enabling event");
+		tsauxc |= eventx ? TSAUXC_EN_TT1 : TSAUXC_EN_TT0;
+		E1000_WRITE_REG(hw, E1000_TSAUXC, tsauxc); /* 8.15.13 */
+		E1000_WRITE_FLUSH(hw);
+	}
 	return 0;
 }
 
@@ -310,22 +317,21 @@ int rte_pmd_i210_sdp_toggle_delay(uint16_t port, uint8_t eventx, uint32_t us)
 	E1000_WRITE_REG(hw, E1000_TRGTTIML(eventx), nsec);
 	E1000_WRITE_REG(hw, E1000_TRGTTIMH(eventx), sec);
 
-	uint32_t tsauxc, tssdp;
-	tsauxc = E1000_READ_REG(hw, E1000_TSAUXC);
-	tsauxc |= eventx ? TSAUXC_EN_TT1 : TSAUXC_EN_TT0;
-	E1000_WRITE_REG(hw, E1000_TSAUXC, tsauxc); /* 8.15.13 */
-
-	E1000_WRITE_FLUSH(hw);
+	uint32_t tsauxc = E1000_READ_REG(hw, E1000_TSAUXC);
+	if (!(tsauxc & (eventx ? TSAUXC_EN_TT1 : TSAUXC_EN_TT0))) {
+		//puts("enabling event");
+		tsauxc |= eventx ? TSAUXC_EN_TT1 : TSAUXC_EN_TT0;
+		E1000_WRITE_REG(hw, E1000_TSAUXC, tsauxc); /* 8.15.13 */
+		E1000_WRITE_FLUSH(hw);
+	}
 	return 0;
 }
 
-#if 0
-Does not work
+#if 1
 /* 7.8.3.3.2: Pulse Generation */
 RTE_EXPORT_EXPERIMENTAL_SYMBOL(rte_pmd_i210_sdp_pulse, 25.11)
 __rte_experimental
-int rte_pmd_i210_sdp_pulse(uint16_t port,
-			uint8_t pin_num, struct timespec *ts, uint32_t len)
+int rte_pmd_i210_sdp_pulse(uint16_t port, struct timespec *ts, uint32_t len)
 {
 	RTE_ETH_VALID_PORTID_OR_ERR_RET(port, -ENODEV);
 	struct rte_eth_dev *dev = &rte_eth_devices[port];
@@ -333,7 +339,7 @@ int rte_pmd_i210_sdp_pulse(uint16_t port,
 	if (hw->mac.type != e1000_i210) {
 		return -ENOTSUP;
 	}
-	if (pin_num > 3) {
+	if (!ts || len < 8) {
 		return -EINVAL;
 	}
 
@@ -342,25 +348,20 @@ int rte_pmd_i210_sdp_pulse(uint16_t port,
 	E1000_WRITE_REG(hw, E1000_TRGTTIMH0, (uint32_t)ts->tv_sec);
 
 	/* End of pulse */
-	ts->tv_nsec += len;
-	ts->tv_sec += ts->tv_nsec / 1000000000;
-	ts->tv_nsec = ts->tv_nsec % 1000000000;
+	uint64_t t = ((uint64_t)len) + ts->tv_nsec;
+	ts->tv_sec += t / 1000000000;
+	ts->tv_nsec = t % 1000000000;
 	E1000_WRITE_REG(hw, E1000_TRGTTIML1, (uint32_t)ts->tv_nsec);
 	E1000_WRITE_REG(hw, E1000_TRGTTIMH1, (uint32_t)ts->tv_sec);
 
-	/* Assign the chosen target timer onto the hardware pin via TSSDP */
-	uint32_t tssdp, tsauxc;
-	tssdp = E1000_READ_REG(hw, E1000_TSSDP);
-	tssdp |= TS_SDPn_EN(pin_num);
-	TS_SDPn_SEL_TTxr(pin_num, 0, tssdp);
-	E1000_WRITE_REG(hw, E1000_TSSDP, tssdp); /* 8.15.25 */
-
-	tsauxc = E1000_READ_REG(hw, E1000_TSAUXC);
-	tsauxc |= TSAUXC_EN_TT0;
-	tsauxc |= TSAUXC_PLSG;
-	E1000_WRITE_REG(hw, E1000_TSAUXC, tsauxc); /* 8.15.13 */
-
-	E1000_WRITE_FLUSH(hw);
+	uint32_t tsauxc = E1000_READ_REG(hw, E1000_TSAUXC);
+	if ((tsauxc & (TSAUXC_EN_TT0 | TSAUXC_EN_TT1 | TSAUXC_PLSG))
+				!= (TSAUXC_EN_TT0 | TSAUXC_EN_TT1 | TSAUXC_PLSG)) {
+		puts("enabling pulse");
+		tsauxc |= TSAUXC_EN_TT0 | TSAUXC_EN_TT1 | TSAUXC_PLSG;
+		E1000_WRITE_REG(hw, E1000_TSAUXC, tsauxc); /* 8.15.13 */
+		E1000_WRITE_FLUSH(hw);
+	}
 	return 0;
 }
 #endif
@@ -410,6 +411,7 @@ int rte_pmd_i210_sdp_get_timestamp(uint16_t port, uint8_t capturex, struct times
 	uint32_t tsauxc = E1000_READ_REG(hw, E1000_TSAUXC); /* 8.15.13 */
 	uint32_t enable_bit= capturex ? TSAUXC_EN_TS1 : TSAUXC_EN_TS0;
 	if (!(tsauxc & enable_bit)) {
+		puts("enabling timestamp");
 		tsauxc |= enable_bit;
 		E1000_WRITE_REG(hw, E1000_TSAUXC, tsauxc); /* 8.15.13 */
 		E1000_WRITE_FLUSH(hw);

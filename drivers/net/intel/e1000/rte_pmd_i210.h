@@ -20,6 +20,7 @@ enum i210_sdp_function
 	i210_sdp_clock1   = 0x51,
 	i210_sdp_capture0 = 0x60, //function 3
 	i210_sdp_capture1 = 0x70,
+	i210_sdp_pulse    = 0x81, //function 4
 };
 
 __rte_experimental
@@ -50,6 +51,9 @@ int rte_pmd_i210_sdp_toggle(uint16_t port, uint8_t eventx, struct timespec *ts);
 /* eventx = 0-1 */
 __rte_experimental
 int rte_pmd_i210_sdp_toggle_delay(uint16_t port, uint8_t eventx, uint32_t us);
+
+__rte_experimental
+int rte_pmd_i210_sdp_pulse(uint16_t port, struct timespec *ts, uint32_t len);
 
 #define I210_PPS1 500000000
 #define I210_PPS2 250000000
