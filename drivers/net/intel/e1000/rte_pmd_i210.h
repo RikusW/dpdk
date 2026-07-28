@@ -73,6 +73,7 @@ int rte_pmd_i210_sdp_set_clock(uint16_t port, uint8_t clockx, uint32_t ns_period
 
 /* clockx = 0-1 */
 /* ns_offset should be < (ns_period * 2) */
+/* strange behaviour was observed, use with caution and a scope*/
 __rte_experimental
 int rte_pmd_i210_sdp_set_clock_phase(uint16_t port, uint8_t clockx, uint32_t ns_offset);
 

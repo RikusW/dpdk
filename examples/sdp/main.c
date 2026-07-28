@@ -79,6 +79,7 @@ static enum i210_sdp_function str2func(const char *s)
 int main(int argc, char *argv[])
 {
 	uint8_t port = 0;
+	uint32_t clockp[2] = {0};
 	int ret = rte_eal_init(argc, argv);
 	if (ret < 0) {
 		rte_panic("Cannot init EAL\n");
@@ -170,9 +171,30 @@ int main(int argc, char *argv[])
 		if (checkarg(argc, argv, "--clock", 3)) {
 			uint8_t clockx = atoi(argv[1]) & 1;
 			int period = atoi(argv[2]); //ns
+			clockp[clockx] = period;
 
 			if (rte_pmd_i210_sdp_set_clock(port, clockx, period) < 0) {
 				puts("rte_pmd_i210_sdp_clock failed");
+			}
+		} else
+		if (checkarg(argc, argv, "--phase", 3)) {
+			uint8_t clockx = atoi(argv[1]) & 1;
+			int phase = atoi(argv[2]); //ns
+
+			if (rte_pmd_i210_sdp_set_clock_phase(port, clockx, phase) < 0) {
+				puts("rte_pmd_i210_sdp_clock failed");
+			}
+		} else
+		if (checkarg(argc, argv, "--phaseloop", 3)) {
+			uint8_t clockx = atoi(argv[1]) & 1;
+			int step = atoi(argv[2]); //ns
+			uint32_t u, p = clockp[clockx];
+
+			for (u = step; u < p; u += step) {
+				usleep(p / 1000 * 2);
+				if (rte_pmd_i210_sdp_set_clock_phase(port, clockx, u) < 0) {
+					puts("rte_pmd_i210_sdp_clock failed");
+				}
 			}
 		} else
 		if (checkarg(argc, argv, "--timestamp", 3)) {
