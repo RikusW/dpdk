@@ -29,7 +29,7 @@ int rte_pmd_i210_sdp_set_functions(uint16_t port,
 			enum i210_sdp_function sdp2, enum i210_sdp_function sdp3);
 
 /* Disable event, clock, or capture function */
-/* The toggle or clock or timestamp functions below will enable it */
+/* The toggle, clock, pulse or timestamp functions below will enable it */
 __rte_experimental
 int rte_pmd_i210_sdp_disable_function(uint16_t port, enum i210_sdp_function f);
 
@@ -45,24 +45,36 @@ __rte_experimental
 int rte_pmd_i210_get_system_time(uint16_t port, struct timespec *ts);
 
 /* eventx = 0-1 */
+/* ts needs to be at least 50us in future */
 __rte_experimental
 int rte_pmd_i210_sdp_toggle(uint16_t port, uint8_t eventx, struct timespec *ts);
 
 /* eventx = 0-1 */
+/* minimum delay of 50us*/
 __rte_experimental
 int rte_pmd_i210_sdp_toggle_delay(uint16_t port, uint8_t eventx, uint32_t us);
 
+/* uses both event0 and event1 */
+/* ts needs to be at least 50us in future */
+/* len in ns */
 __rte_experimental
 int rte_pmd_i210_sdp_pulse(uint16_t port, struct timespec *ts, uint32_t len);
 
+/* These cannot have a phase offset */
 #define I210_PPS1 500000000
 #define I210_PPS2 250000000
 #define I210_PPS4 125000000
 
 /* clockx = 0-1 */
 /* ns_period 8ns - 70ms, 125ms, 250ms, 500ms */
+/* API for setting phase offset when period <= 70ms not implemented yet */
 __rte_experimental
 int rte_pmd_i210_sdp_set_clock(uint16_t port, uint8_t clockx, uint32_t ns_period);
+
+/* clockx = 0-1 */
+/* ns_offset should be < (ns_period * 2) */
+__rte_experimental
+int rte_pmd_i210_sdp_set_clock_phase(uint16_t port, uint8_t clockx, uint32_t ns_offset)
 
 /* capturex = 0-1 */
 __rte_experimental

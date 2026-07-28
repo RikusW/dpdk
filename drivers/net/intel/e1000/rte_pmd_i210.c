@@ -377,17 +377,47 @@ int rte_pmd_i210_sdp_set_clock(uint16_t port, uint8_t clockx, uint32_t ns_period
 	if (hw->mac.type != e1000_i210) {
 		return -ENOTSUP;
 	}
-	if (clockx > 1) {
+	if (clockx > 1 || ns_period < 8) {
+		return -EINVAL;
+	}
+	if (ns_period > 70000000 &&
+		ns_period != I210_PPS1 &&
+		ns_period != I210_PPS2 &&
+		ns_period != I210_PPS4) {
 		return -EINVAL;
 	}
 
 	E1000_WRITE_REG(hw, clockx ? E1000_FREQOUT1 : E1000_FREQOUT0, ns_period);
+	E1000_WRITE_REG(hw, E1000_TRGTTIML(clockx), 0);
+	E1000_WRITE_REG(hw, E1000_TRGTTIMH(clockx), 0);
 
 	uint32_t tsauxc;
 	tsauxc = E1000_READ_REG(hw, E1000_TSAUXC);
 	tsauxc |= clockx ? TSAUXC_EN_CLK1 : TSAUXC_EN_CLK0;
 	E1000_WRITE_REG(hw, E1000_TSAUXC, tsauxc); /* 8.15.13 */
 
+	E1000_WRITE_FLUSH(hw);
+	return 0;
+}
+
+RTE_EXPORT_EXPERIMENTAL_SYMBOL(rte_pmd_i210_sdp_set_clock_phase, 25.11)
+__rte_experimental
+int rte_pmd_i210_sdp_set_clock_phase(uint16_t port, uint8_t clockx, uint32_t ns_offset)
+{
+	RTE_ETH_VALID_PORTID_OR_ERR_RET(port, -ENODEV);
+	struct rte_eth_dev *dev = &rte_eth_devices[port];
+	struct e1000_hw *hw = E1000_DEV_PRIVATE_TO_HW(dev->data->dev_private);
+	if (hw->mac.type != e1000_i210) {
+		return -ENOTSUP;
+	}
+	if (clockx > 1) {
+		return -EINVAL;
+	}
+
+	uint32_t period = E1000_READ_REG(hw, clockx ? E1000_FREQOUT1 : E1000_FREQOUT0);
+	ns_offset %= period << 1;
+	E1000_WRITE_REG(hw, E1000_TRGTTIML(clockx), ns_offset);
+	E1000_WRITE_REG(hw, E1000_TRGTTIMH(clockx), 0);
 	E1000_WRITE_FLUSH(hw);
 	return 0;
 }
