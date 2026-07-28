@@ -16,11 +16,11 @@ enum i210_sdp_function
 	//The functions below can be assigned to one pin only
 	i210_sdp_event0   = 0x21, //function 1
 	i210_sdp_event1   = 0x31,
-	i210_sdp_clock0   = 0x41, //function 2 clockx and eventx use the same hardware, use only one
+	i210_sdp_clock0   = 0x41, //function 2 clockx and eventx use the same hardware
 	i210_sdp_clock1   = 0x51,
-	i210_sdp_capture0 = 0x60, //function 3
+	i210_sdp_capture0 = 0x60, //function 3 independent from event hardware
 	i210_sdp_capture1 = 0x70,
-	i210_sdp_pulse    = 0x81, //function 4
+	i210_sdp_pulse    = 0x81, //function 4 uses event0 and event1 hardware
 };
 
 __rte_experimental
